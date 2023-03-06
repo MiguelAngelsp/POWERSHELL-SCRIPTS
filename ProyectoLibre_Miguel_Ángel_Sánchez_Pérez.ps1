@@ -1,12 +1,18 @@
 ﻿#LIMPIAMOS SHELL
 Clear-Host
 
+
+#IMPORTAMOS EL MODULO DE ACTIVE DIRECTORY
+Import-Module ActiveDirectory
+
+
 # OBTENER INFORMACIÓN DEL DOMINIO
 Write-Host "DATOS DEL DOMINIO AL QUE ESTÁ CONECTADO:" -ForegroundColor Yellow
 $Equipo = Get-ADDomainController -Filter *
 $Dominio = Get-ADDomain
 Write-Host "Dominio:" $Dominio -ForegroundColor Green 
 Write-Host "Equipo:" $Equipo -ForegroundColor Green 
+
 
 #DEFINICION DE FUNCION EXPORTAR USUARIOS Y GRUPOS DEL DOMINIO A .CSV
 function ExportaraCSV {
@@ -46,6 +52,7 @@ Function CambiarPropiedadesUsuariosCSV {
   Write-Host "Presione ↲ para continuar..." -ForegroundColor DarkRed; Read-Host
 }
 
+
 # DEFINICIÓN DE FUNCIÓN PARA CREAR Y ADMINISTRAR DIRECTIVAS DE GRUPO
 function GestionarGPO {
   # Variable para el nombre de la GPO 
@@ -72,17 +79,17 @@ function GestionarGPO {
     #Condicional para crear una nueva unidad organizativa
     $OU = Read-Host "Introduzca nombre de unidad organizativa a crear"
 
-    # Comprobar si la OU ya existe
+    # Comprobar si la unidad organizativa existe
     $ExistenciaOU = Get-ADOrganizationalUnit -Filter "Name -eq '$OU'" -SearchBase $Dominio -ErrorAction SilentlyContinue
 
-    # Si no existe, crear la nueva OU
+    # Si no existe la unidad organizativa, la creamos
     if (!$ExistenciaOU) {
       New-ADOrganizationalUnit -Name $OU -Path $Dominio
       Write-Output "Se ha creado la nueva OU '$OU'."
       # Asignamos la GPO a una unidad organizativa (OU)
       $NombreOU = Read-Host "Inserte el nombre de unidad organizativa donde se aplicará la GPO"
       $ruta = 'OU=' + $NombreOU + ',' + $Dominio
-      $GPCPath = "CN={$(Get-GPO -Name $NombreGPO).Id},CN=Policies,CN=System,$($ruta)"
+      $RutaGPC = "CN={$(Get-GPO -Name $NombreGPO).Id},CN=Policies,CN=System,$($ruta)"
       New-GPLink -Name $NombreGPO -Target $ruta -LinkEnabled Yes 
 
       Write-Output "La GPO $NombreGPO ha sido configurada y asignada a la OU $NombreOU"
@@ -95,10 +102,10 @@ function GestionarGPO {
   elseif ($opcion -eq "no") {
     Write-Host "OK, continuamos..."
     
-    # Asignamos la GPO a una unidad organizativa (OU)
+    # Asignamos la GPO a una unidad organizativa
     $NombreOU = Read-Host "Inserte el nombre de unidad organizativa donde se aplicará la GPO"
     $ruta = 'OU=' + $NombreOU + ',' + $Dominio
-    $GPCPath = "CN={$(Get-GPO -Name $NombreGPO).Id},CN=Policies,CN=System,$($ruta)"
+    $RutaGPC = "CN={$(Get-GPO -Name $NombreGPO).Id},CN=Policies,CN=System,$($ruta)"
     New-GPLink -Name $NombreGPO -Target $ruta -LinkEnabled Yes 
     Write-Host $ruta
 
@@ -108,6 +115,7 @@ function GestionarGPO {
     Write-Host "Opción incorrecta. Ingrese "si" o "no"" -ForegroundColor Red
   }
 }
+
 
 #DEFINICION DE FUNCION PARA LISTAR GPO A PARTIR DE UNA UNIDAD ORGANIZATIVA
 function ObtenerGPO {
@@ -122,6 +130,34 @@ function ObtenerGPO {
     Write-Error "No se pudo encontrar la unidad organizativa $NombreUnidadOrganizativa"
     Write-Host "Presione ↲ para continuar..." -ForegroundColor DarkRed; Read-Host
   }
+}
+
+
+#DEFINICIÓN DE LA FUNCIÓN PARA LA CREACIÓN DE RECURSOS COMPARTIDOS
+function NuevoRecursoCompartido {
+  
+  # Solicita al usuario los valores necesarios para el recurso compartido
+  $NombreRecurso = Read-Host "Ingresa el nombre del recurso compartido"
+  $Descripcion = Read-Host "Ingresa una descripción para el recurso compartido"
+  $Ruta = Read-Host "Ingresa la ruta completa de la carpeta que deseas compartir"
+  $TamanoMaximo = Read-Host "Ingresa el tamaño máximo permitido para el recurso compartido"
+  $GrupoRoot = Read-Host "Ingresa el nombre del grupo que tendrá permisos de acceso completo"
+  $GrupoEditor = Read-Host "Ingresa el nombre del grupo que tendrá permisos de lectura y escritura"
+  
+  # Crea el objeto para el recurso compartido
+  $parametros = @{
+    Name           = $NombreRecurso
+    Path           = $Ruta
+    Description    = $Descripcion
+    FullAccess     = "$GrupoRoot,Full"
+    ReadWrite      = "$GrupoEditor,Change"
+    MaximumAllowed = $TamanoMaximo
+  }
+  New-SmbShare @parametros
+  
+  # Verifica que el recurso compartido se haya creado correctamente
+  Get-SmbShare -Name $NombreRecurso
+
 }
 
 
@@ -181,7 +217,7 @@ while ($buqle) {
       Clear-host
       Write-host "Usted ha seleccionado la opción 5"
       Write-host "||CREACIÓN DE RECURSOS COMPARTIDOS||" -ForegroundColor Cyan
-      RecursosCompartidos
+      NuevoRecursoCompartido
     }
     6 {
       Clear-host
