@@ -109,7 +109,7 @@ function GestionarGPO {
     New-GPLink -Name $NombreGPO -Target $ruta -LinkEnabled Yes 
     Write-Host $ruta
 
-    Write-Output "La GPO $NombreGPO ha sido configurada y asignada a la OU $NombreOU"
+    Write-Output "La GPO $NombreGPO ha sido configurada y asignada a la OU $NombreOU" -ForegroundColor Green
   }
   else {
     Write-Host "Opción incorrecta. Ingrese "si" o "no"" -ForegroundColor Red
@@ -140,24 +140,26 @@ function NuevoRecursoCompartido {
   $NombreRecurso = Read-Host "Ingresa el nombre del recurso compartido"
   $Descripcion = Read-Host "Ingresa una descripción para el recurso compartido"
   $Ruta = Read-Host "Ingresa la ruta completa de la carpeta que deseas compartir"
-  $TamanoMaximo = Read-Host "Ingresa el tamaño máximo permitido para el recurso compartido"
   $GrupoRoot = Read-Host "Ingresa el nombre del grupo que tendrá permisos de acceso completo"
   $GrupoEditor = Read-Host "Ingresa el nombre del grupo que tendrá permisos de lectura y escritura"
-  
+  $GrupoLector = Read-Host "Ingresa el nombre del grupo que tendrá permisos de lectura"
+
   # Crea el objeto para el recurso compartido
+  $DOMINIO = "FINETCOMPANY\"
   $parametros = @{
-    Name           = $NombreRecurso
-    Path           = $Ruta
-    Description    = $Descripcion
-    FullAccess     = "$GrupoRoot,Full"
-    ReadWrite      = "$GrupoEditor,Change"
-    MaximumAllowed = $TamanoMaximo
+    Name         = $NombreRecurso
+    Path         = $Ruta
+    Description  = $Descripcion
+    FullAccess   = $GrupoRoot
+    ChangeAccess = $DOMINIO + $GrupoEditor
+    ReadAccess   = $DOMINIO + $GrupoLector
   }
   New-SmbShare @parametros
-  
+  Write-Host "El recurso compartido $NombreRecurso ha sido creado y se le han asignado los permisos de Administrador al grupo $GrupoRoot, permisos de Edición al grupo $GrupoEditor y permisos de Lectura al grupo $GrupoLector" -ForegroundColor Green
   # Verifica que el recurso compartido se haya creado correctamente
   Get-SmbShare -Name $NombreRecurso
-
+  Write-Host "Presione ↲ para continuar..." -ForegroundColor DarkRed; Read-Host
+ 
 }
 
 
