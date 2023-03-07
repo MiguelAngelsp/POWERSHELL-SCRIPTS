@@ -165,6 +165,7 @@ function NuevoRecursoCompartido {
   New-SmbShare @parametros -EncryptData $True
   #Comprobamos que el recurso compartido se haya creado correctamente
   Write-Host "EL RECURSO COMPARTIDO SE HA CREADO CON EL SIGUIENTE NOMBRE Y PERMISOS DE GRUPOS:" -ForegroundColor Green
+  #La salida del comando para la obtención de datos del recurso creado la obtenemos en formato de lista
   Get-SmbShareAccess -Name $NombreRecurso | Select-Object -Property Name, AccountName, AccessRight
   #Comprobamos que el recurso compartido se haya creado correctamente
   # Get-SmbShare -Name $NombreRecurso
