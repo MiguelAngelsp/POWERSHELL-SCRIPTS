@@ -10,6 +10,7 @@ Import-Module ActiveDirectory
 Write-Host "DATOS DEL DOMINIO AL QUE ESTÁ CONECTADO:" -ForegroundColor Yellow
 $Equipo = Get-ADDomainController -Filter *
 $Dominio = Get-ADDomain
+$OU = ",OU=Usuarios,"
 Write-Host "Dominio:" $Dominio -ForegroundColor Green 
 Write-Host "Equipo:" $Equipo -ForegroundColor Green 
 
@@ -117,6 +118,8 @@ function GestionarGPO {
 }
 
 
+
+
 #DEFINICION DE FUNCION PARA LISTAR GPO A PARTIR DE UNA UNIDAD ORGANIZATIVA
 function ObtenerGPO {
   $NombreUnidadOrganizativa = Read-Host "Ingrese el nombre de la Unidad Organizativa"
@@ -201,6 +204,51 @@ function InformacionRecursoCompartido {
 }
 
 
+#DEFINICIÓN DE LA FUNCIÓN PARA ADMINISTRAR POLÍTICAS DE CONTRASEÑAS DE LOS USUARIOS
+function GestionarPoliticas {
+  $CN = "CN="
+  # $domain = "dc=finetcompany,dc=espana"
+  #Listamos todos los usuarios para saber cual tomaremos de referencia
+  Get-ADUser -Filter *
+  Write-Host "Presione ↲ para continuar..." -ForegroundColor DarkYellow; Read-Host
+
+  # Verificar si las políticas de contraseña están habilitadas en el dominio
+  $PoliticaContra = Get-ADDefaultDomainPasswordPolicy 
+  if ($null -eq $PoliticaContra) {
+    Write-Host "Las políticas de contraseña no están habilitadas en el dominio."
+  }
+  else {
+    Write-Host "Las políticas de contraseña están habilitadas en el dominio."
+    Write-Host "La longitud mínima de la contraseña es: $($PoliticaContra.MinPasswordLength)"
+    Write-Host "La edad máxima de la contraseña es: $($PoliticaContra.MaxPasswordAge.Days) días."
+    Write-Host "El número mínimo de contraseñas anteriores que deben recordarse es: $($PoliticaContra.PasswordHistoryCount)."
+  }
+
+  # Restablecer la contraseña de un usuario
+  $NombreUsuario = Read-Host "Ingrese el nombre de usuario"
+  # Write-Host $CN$NombreUsuario$OU$Dominio
+  $usuario = Get-ADUser -Identity $NombreUsuario -ErrorAction SilentlyContinue
+  if ($null -eq $usuario) {
+    Write-Host "El usuario $NombreUsuario no existe en el dominio."
+  }
+  else {
+    $NuevaContra = Read-Host "Ingrese la nueva contraseña para el usuario $NombreUsuario"
+    Set-ADAccountPassword -Identity $NombreUsuario -NewPassword (ConvertTo-SecureString -AsPlainText $NuevaContra -Force) 
+    Write-Host "La contraseña del usuario $NombreUsuario se ha restablecido correctamente."
+    $CambiarContra = Read-Host "¿Desea forzar el cambio de contraseña en el próximo inicio de sesión? (Si/No)"
+    #Solicitamos al usuario sus credenciales para la definición de la nueva contraseña
+    Get-Process -Credential (Get-Credential)
+    if ($CambiarContra.ToLower() -eq "si") {
+      Set-ADUser -Identity $NombreUsuario -ChangePasswordAtLogon $true 
+      Write-Host "El usuario $NombreUsuario deberá cambiar su contraseña en el próximo inicio de sesión."
+    }
+    else {
+      Write-Host "Al usuario $NombreUsuario no se le solicitará cambiar su contraseña en el próximo inicio de sesión."
+    }
+  }
+}
+
+
 
 #DEFINICION DEL MENU DE SELECCION PARA EL USUARIO
 $buqle = $true
@@ -221,9 +269,7 @@ while ($buqle) {
   write-host " 6." -ForegroundColor White -NoNewLine
   Write-host "Listar información acerca de los recursos compartidos creados" -ForegroundColor DarkGray
   write-host " 7." -ForegroundColor White -NoNewLine
-  write-host "Mostrar todos los usuarios" -ForegroundColor DarkGray
-  write-host " 8." -ForegroundColor White -NoNewLine
-  write-host "Crear un nuevo grupo" -ForegroundColor DarkGray
+  write-host "Administrar políticas de contraseña de los usuarios" -ForegroundColor DarkGray
   write-host " X." -ForegroundColor Red -NoNewLine
   write-host "Salir" -ForegroundColor Gray
   $eleccion = read-host "Seleccione una opción" 
@@ -268,16 +314,10 @@ while ($buqle) {
     7 {
       Clear-host
       Write-host "Usted ha seleccionado la opción 7"
-      Write-host "||MOSTRAR TODOS LOS USUARIOS||" -ForegroundColor Cyan
+      Write-host "||ADMINISTRAR POLÍTICAS DE CONTRASEÑA DE LOS USUARIOS||" -ForegroundColor Cyan
       Write-Host "Presione ↲ para continuar..." -ForegroundColor DarkRed; Read-Host 
       Clear-Host
-    }
-    8 {
-      Clear-host
-      Write-host "Usted ha seleccionado la opción 8"
-      Write-host "||CREAR UN NUEVO GRUPO||" -ForegroundColor Cyan
-      Write-Host "Presione ↲ para continuar..." -ForegroundColor DarkRed; Read-Host 
-      Clear-Host
+      GestionarPoliticas
     }
     ‘x’ { $buqle = $false }
     default { Write-Host "Eleccion invalida" -ForegroundColor Red }
